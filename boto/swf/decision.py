@@ -2,7 +2,9 @@ import simplejson
 
 class DecisionAction():
     """Some sort of action taken when a decision is finished"""
-    pass
+    def __str__(self):
+        return simplejson.dumps(self.data)
+
 
 class ScheduleActivityTask(DecisionAction):
     """A decision to schedule a new activity"""
@@ -14,9 +16,6 @@ class ScheduleActivityTask(DecisionAction):
         self.activity_id            = activity_id
         self.activity_input         = activity_input
  
-    def __str__(self):
-        return simplejson.dumps(self.data)
-
     @property
     def data(self):
         return {
@@ -31,6 +30,98 @@ class ScheduleActivityTask(DecisionAction):
              },
         }
 
+class CompleteWorkflowExecution(DecisionAction):
+    @property
+    def data(self):
+        return {
+            'decisionType'  : 'CompleteWorkflowExecution'
+        }
+
+
+
+
+class Event():
+    """ An event that may be returned with a decision """
+    def __init__(self, data):
+        self._data = data
+
+    @property
+    def id(self):
+        return self._data['eventId']
+
+    @property
+    def type(self):
+        return EVENT_TYPE_NAME_MAP[self._data['eventType']]
+
+    @staticmethod
+    def parse(data):
+        """Create a new Event object given a data dictionary"""
+        event_class = EVENT_TYPE_NAME_MAP(data['eventType'])
+        return event_class(data)
+
+class ActivityTaskCompleted(Event):
+    pass
+class ActivityTaskStarted(Event):
+    pass
+class ActivityTaskCompleted(Event):
+    pass
+class ActivityTaskScheduled(Event):
+    pass
+class DecisionTaskCompleted(Event):
+    pass
+class DecisionTaskScheduled(Event):
+    pass
+class DecisionTaskStarted(Event):
+    pass
+class WorkflowExecutionCompleted(Event):
+    pass
+class WorkflowExecutionStarted(Event):
+    pass
+
+EVENT_TYPE_NAME_MAP = {
+    'ActivityTaskStarted'           : ActivityTaskStarted,
+    'ActivityTaskCompleted'         : ActivityTaskCompleted,
+    'ActivityTaskScheduled'         : ActivityTaskScheduled,
+    'DecisionTaskCompleted'         : DecisionTaskCompleted,
+    'DecisionTaskScheduled'         : DecisionTaskScheduled,
+    'DecisionTaskStarted'           : DecisionTaskStarted,
+    'WorkflowExecutionCompleted'    : WorkflowExecutionCompleted,
+    'WorkflowExecutionStarted'      : WorkflowExecutionStarted,
+}
+
+class EventList():
+    """A special class for managing access to the events on a decision"""
+
+    def __init__(self, data):
+        """Set up the event manager provided the list of event data"""
+        self._data = data
+
+    @property
+    def types(self):
+        """Return a list of the types of events that are in this eventlist"""
+        if not hasattr(self, '_types'):
+            self._types = self._get_types()
+        return self._types
+
+    def _get_types(self):
+        """Generate and return the list of types in the events in this EventList"""
+        my_types = set()
+        for event in self:
+            my_types.add( event.type )
+        return my_types
+    
+    def __iter__(self):
+        self._i = 0
+        return self
+
+    def next(self):
+        try:
+            result = Event(self._data[self._i])
+            self._i += 1
+            return result
+        except IndexError:
+            raise StopIteration
+    
 class DecisionTask():
     """
     Example data for a decision task:
@@ -63,6 +154,7 @@ class DecisionTask():
     """
     def __init__(self, task_list, data):
         self.task_list = task_list
+        self.events = EventList(data['events'])
         self._data = data
 
     @property
@@ -79,8 +171,9 @@ class DecisionTask():
 
     def finish( self, decisions ):
         """Finish this decision task and signal the provided decisions"""
-        import pdb;pdb.set_trace()
         self.task_list.finish_decision( self, decisions )
         
     def ScheduleActivityTask( self, activity_type_name, activity_type_version, activity_id, activity_input='' ):
         return ScheduleActivityTask( self, activity_type_name, activity_type_version, activity_id, activity_input )
+    def CompleteWorkflowExecution( self ):
+        return CompleteWorkflowExecution()
