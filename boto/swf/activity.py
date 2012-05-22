@@ -29,6 +29,10 @@ class ActivityTask():
     def task_token(self):
         return self._data['taskToken']
 
+    @property
+    def input(self):
+        return self._data['input']
+
     def finish( self, status ):
         """Finish this decision task and signal the provided decisions"""
         self.task_list.finish_activity( self, status )
