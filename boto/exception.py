@@ -347,6 +347,9 @@ class SWFResponseError(BotoServerError):
             if self.error_code:
                 self.error_code = self.error_code.split('#')[-1]
 
+class SWFParameterError(BotoClientError):
+    """This error is for the user passing bad parameters in to the SWF functions"""
+    pass
 
 class EmrResponseError(BotoServerError):
     """
